@@ -4,15 +4,23 @@ set -e
 REPO_URL="https://github.com/k0ra09/Remna-Monitor"
 DIR="Remna-Monitor"
 
-echo "🧠 Remna Monitor installer"
-echo "=========================="
-echo
-echo "What do you want to install?"
-echo "1) Agent only"
-echo "2) Bot only"
-echo "3) Agent + Bot"
-read -rp "> " MODE
+while true; do
+  echo
+  echo "What do you want to install?"
+  echo "1) Agent only"
+  echo "2) Bot only"
+  echo "3) Agent + Bot"
+  read -rp "> " MODE
 
+  case "$MODE" in
+    1|2|3)
+      break
+      ;;
+    *)
+      echo "❌ Invalid choice, please enter 1, 2 or 3"
+      ;;
+  esac
+done
 if [[ "$MODE" != "1" && "$MODE" != "2" && "$MODE" != "3" ]]; then
   echo "❌ Invalid choice"
   exit 1
