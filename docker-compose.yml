@@ -2,7 +2,8 @@ version: "3.9"
 
 services:
   agent:
-    build: ./agent
+    build:
+      context: ./agent
     container_name: remna-agent
     restart: always
     network_mode: host
@@ -11,11 +12,12 @@ services:
       AGENT_TOKEN: ${AGENT_TOKEN}
 
   bot:
-  build: ./bot
-  container_name: remna-bot
-  restart: always
-  network_mode: host
-  environment:
-    BOT_TOKEN: ${BOT_TOKEN}
-    AGENT_TOKEN: ${AGENT_TOKEN}
-    AGENTS: ${AGENTS}
+    build:
+      context: ./bot
+    container_name: remna-bot
+    restart: always
+    network_mode: host
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      AGENT_TOKEN: ${AGENT_TOKEN}
+      AGENTS: ${AGENTS}
