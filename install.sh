@@ -6,44 +6,46 @@ DIR="Remna-Monitor"
 
 echo "🧠 Remna Monitor installer"
 echo "=========================="
+echo
 
-# -------- helpers --------
-fail() {
-  echo "❌ $1"
+# ---- sanity check: must have TTY ----
+if [[ ! -t 0 ]]; then
+  echo "❌ This installer requires an interactive terminal (TTY)"
+  echo "Run it like this:"
+  echo "  curl -fsSL $REPO_URL/raw/main/install.sh -o install.sh"
+  echo "  bash install.sh"
   exit 1
-}
+fi
 
-require() {
-  command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
-}
-
-set_env() {
-  local key="$1"
-  local val="$2"
-
-  if grep -q "^$key=" .env 2>/dev/null; then
-    sed -i "s|^$key=.*|$key=$val|" .env
-  else
-    echo "$key=$val" >> .env
+# ---- deps ----
+for cmd in git docker; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "❌ Required command not found: $cmd"
+    exit 1
   fi
-}
+done
 
-# -------- checks --------
-require git
-require docker
+if ! docker compose version >/dev/null 2>&1; then
+  echo "❌ docker compose plugin not found"
+  exit 1
+fi
 
-docker compose version >/dev/null 2>&1 || fail "docker compose plugin not found"
+# ---- menu ----
+while true; do
+  echo
+  echo "What do you want to install?"
+  echo "1) Agent only"
+  echo "2) Bot only"
+  echo "3) Agent + Bot"
+  read -rp "> " MODE
 
-INSTALL_MODE="${INSTALL_MODE:-}"
+  case "$MODE" in
+    1|2|3) break ;;
+    *) echo "❌ Invalid choice, enter 1, 2 or 3" ;;
+  esac
+done
 
-[[ -z "$INSTALL_MODE" ]] && fail "INSTALL_MODE is required (agent | bot | all)"
-
-case "$INSTALL_MODE" in
-  agent|bot|all) ;;
-  *) fail "INSTALL_MODE must be: agent | bot | all" ;;
-esac
-
-# -------- clone --------
+# ---- clone ----
 if [[ ! -d "$DIR" ]]; then
   echo "📦 Cloning repository..."
   git clone "$REPO_URL"
@@ -51,47 +53,64 @@ fi
 
 cd "$DIR"
 
-# -------- env --------
-[[ ! -f .env ]] && cp .env.example .env
+# ---- env ----
+if [[ ! -f .env ]]; then
+  echo "📝 Creating .env"
+  cp .env.example .env
+fi
 
-# -------- agent --------
-if [[ "$INSTALL_MODE" == "agent" || "$INSTALL_MODE" == "all" ]]; then
-  [[ -z "${AGENT_NAME:-}" ]] && fail "AGENT_NAME is required"
-  [[ -z "${AGENT_TOKEN:-}" ]] && fail "AGENT_TOKEN is required"
+set_env() {
+  local key="$1"
+  local val="$2"
+
+  if grep -q "^$key=" .env; then
+    sed -i "s|^$key=.*|$key=$val|" .env
+  else
+    echo "$key=$val" >> .env
+  fi
+}
+
+# ---- agent ----
+if [[ "$MODE" == "1" || "$MODE" == "3" ]]; then
+  read -rp "Agent name: " AGENT_NAME
+  read -rp "Agent token: " AGENT_TOKEN
 
   set_env AGENT_NAME "$AGENT_NAME"
   set_env AGENT_TOKEN "$AGENT_TOKEN"
 fi
 
-# -------- bot --------
-if [[ "$INSTALL_MODE" == "bot" || "$INSTALL_MODE" == "all" ]]; then
-  [[ -z "${BOT_TOKEN:-}" ]] && fail "BOT_TOKEN is required"
-  [[ -z "${AGENTS:-}" ]] && fail "AGENTS is required"
+# ---- bot ----
+if [[ "$MODE" == "2" || "$MODE" == "3" ]]; then
+  read -rp "Telegram BOT_TOKEN: " BOT_TOKEN
+  read -rp "Agents list (comma separated, http://ip:8000): " AGENTS
 
   set_env BOT_TOKEN "$BOT_TOKEN"
   set_env AGENTS "$AGENTS"
 
-  # bot тоже использует AGENT_TOKEN
-  [[ -z "${AGENT_TOKEN:-}" ]] && fail "AGENT_TOKEN is required for bot"
-  set_env AGENT_TOKEN "$AGENT_TOKEN"
+  if ! grep -q "^AGENT_TOKEN=" .env; then
+    read -rp "Agent token (for bot → agent auth): " AGENT_TOKEN
+    set_env AGENT_TOKEN "$AGENT_TOKEN"
+  fi
 fi
 
-# -------- run --------
+# ---- run ----
+echo
 echo "🚀 Starting services..."
 
-case "$INSTALL_MODE" in
-  agent)
+case "$MODE" in
+  1)
     docker compose up -d --build agent
     echo "📡 Agent installed and running"
     ;;
-  bot)
+  2)
     docker compose up -d --build bot
     echo "🤖 Bot installed and running"
     ;;
-  all)
+  3)
     docker compose up -d --build
     echo "🤖 Bot + 📡 Agent installed and running"
     ;;
 esac
 
+echo
 echo "✅ Installation complete"
