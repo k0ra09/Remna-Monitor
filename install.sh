@@ -8,16 +8,7 @@ echo "🧠 Remna Monitor installer"
 echo "=========================="
 echo
 
-# ---- sanity check: must have TTY ----
-if [[ ! -t 0 ]]; then
-  echo "❌ This installer requires an interactive terminal (TTY)"
-  echo "Run it like this:"
-  echo "  curl -fsSL $REPO_URL/raw/main/install.sh -o install.sh"
-  echo "  bash install.sh"
-  exit 1
-fi
-
-# ---- deps ----
+# ---- проверки ----
 for cmd in git docker; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "❌ Required command not found: $cmd"
@@ -30,9 +21,8 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-# ---- menu ----
+# ---- меню ----
 while true; do
-  echo
   echo "What do you want to install?"
   echo "1) Agent only"
   echo "2) Bot only"
@@ -41,11 +31,11 @@ while true; do
 
   case "$MODE" in
     1|2|3) break ;;
-    *) echo "❌ Invalid choice, enter 1, 2 or 3" ;;
+    *) echo "❌ Invalid choice, enter 1, 2 or 3"; echo ;;
   esac
 done
 
-# ---- clone ----
+# ---- клонирование ----
 if [[ ! -d "$DIR" ]]; then
   echo "📦 Cloning repository..."
   git clone "$REPO_URL"
@@ -62,7 +52,6 @@ fi
 set_env() {
   local key="$1"
   local val="$2"
-
   if grep -q "^$key=" .env; then
     sed -i "s|^$key=.*|$key=$val|" .env
   else
@@ -70,7 +59,7 @@ set_env() {
   fi
 }
 
-# ---- agent ----
+# ---- агент ----
 if [[ "$MODE" == "1" || "$MODE" == "3" ]]; then
   read -rp "Agent name: " AGENT_NAME
   read -rp "Agent token: " AGENT_TOKEN
@@ -79,7 +68,7 @@ if [[ "$MODE" == "1" || "$MODE" == "3" ]]; then
   set_env AGENT_TOKEN "$AGENT_TOKEN"
 fi
 
-# ---- bot ----
+# ---- бот ----
 if [[ "$MODE" == "2" || "$MODE" == "3" ]]; then
   read -rp "Telegram BOT_TOKEN: " BOT_TOKEN
   read -rp "Agents list (comma separated, http://ip:8000): " AGENTS
@@ -93,7 +82,7 @@ if [[ "$MODE" == "2" || "$MODE" == "3" ]]; then
   fi
 fi
 
-# ---- run ----
+# ---- запуск ----
 echo
 echo "🚀 Starting services..."
 
