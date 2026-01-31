@@ -11,10 +11,11 @@ services:
       AGENT_TOKEN: ${AGENT_TOKEN}
 
   bot:
-    build: ./bot
-    container_name: remna-bot
-    restart: always
-    environment:
-      BOT_TOKEN: ${BOT_TOKEN}
-      AGENT_TOKEN: ${AGENT_TOKEN}
-      AGENTS: ${AGENTS}
+  build: ./bot
+  container_name: remna-bot
+  restart: always
+  network_mode: host
+  environment:
+    BOT_TOKEN: ${BOT_TOKEN}
+    AGENT_TOKEN: ${AGENT_TOKEN}
+    AGENTS: ${AGENTS}
