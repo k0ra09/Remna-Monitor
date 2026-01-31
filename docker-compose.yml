@@ -1,2 +1,11 @@
 version: "3.9"
-services: {}
+
+services:
+  agent:
+    build: ./agent
+    container_name: remna-agent
+    restart: always
+    network_mode: host
+    environment:
+      AGENT_NAME: ${AGENT_NAME}
+      AGENT_TOKEN: ${AGENT_TOKEN}
