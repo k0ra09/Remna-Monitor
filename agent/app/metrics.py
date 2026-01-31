@@ -1,40 +1,56 @@
-import os
 import time
-import httpx
+import psutil
+import asyncio
+import socket
 
-REMNAWAVE_API = os.getenv("REMNAWAVE_API")
-REMNANODE_API = os.getenv("REMNANODE_API")
+
+def system_metrics():
+    return {
+        "cpu_percent": psutil.cpu_percent(interval=0.5),
+        "ram_percent": psutil.virtual_memory().percent,
+        "disk_percent": psutil.disk_usage("/").percent,
+        "uptime_sec": int(time.time() - psutil.boot_time()),
+    }
 
 
-async def fetch_api(url: str | None):
-    if not url:
-        return {
-            "enabled": False,
-            "status": "disabled"
-        }
-
+async def check_tcp(host: str, port: int, timeout: float = 1.5):
     try:
-        async with httpx.AsyncClient(timeout=2) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-
-            return {
-                "enabled": True,
-                "status": "ok",
-                "data": resp.json()
-            }
-
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=timeout
+        )
+        writer.close()
+        await writer.wait_closed()
+        return {
+            "status": "ok"
+        }
     except Exception as e:
         return {
-            "enabled": True,
             "status": "error",
             "error": str(e)
         }
 
 
+async def service_checks():
+    return {
+        "remnanode": {
+            "port": 61002,
+            **await check_tcp("127.0.0.1", 61002)
+        },
+        "internal_rest": {
+            "port": 61001,
+            **await check_tcp("127.0.0.1", 61001)
+        },
+        "core": {
+            "port": 61000,
+            **await check_tcp("127.0.0.1", 61000)
+        }
+    }
+
+
 async def collect_metrics():
     return {
         "time": int(time.time()),
-        "remnawave": await fetch_api(REMNAWAVE_API),
-        "remnanode": await fetch_api(REMNANODE_API)
+        "system": system_metrics(),
+        "services": await service_checks()
     }
