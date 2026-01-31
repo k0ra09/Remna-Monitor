@@ -1,7 +1,6 @@
 import time
 import psutil
 import asyncio
-import socket
 
 
 def system_metrics():
@@ -21,14 +20,9 @@ async def check_tcp(host: str, port: int, timeout: float = 1.5):
         )
         writer.close()
         await writer.wait_closed()
-        return {
-            "status": "ok"
-        }
+        return {"status": "ok"}
     except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e)
-        }
+        return {"status": "error", "error": str(e)}
 
 
 async def service_checks():
