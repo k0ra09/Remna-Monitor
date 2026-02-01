@@ -16,13 +16,18 @@ need_cmd() {
   }
 }
 
+prompt() {
+  local text="$1"
+  read -r -p "$text" REPLY </dev/tty
+  echo "$REPLY"
+}
+
 # ---------- checks ----------
 need_cmd git
 need_cmd curl
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "❌ Docker is not installed"
-  echo "👉 Install Docker first"
   exit 1
 fi
 
@@ -51,10 +56,10 @@ echo "2) Bot only"
 echo "3) Agent + Bot"
 echo ""
 
-read -r -p "Enter choice [1-3]: " MODE
+MODE="$(prompt 'Enter choice [1-3]: ')"
 
 if [[ ! "$MODE" =~ ^[123]$ ]]; then
-  echo "❌ Invalid choice"
+  echo "❌ Invalid choice, please enter 1, 2 or 3"
   exit 1
 fi
 
@@ -66,16 +71,16 @@ echo ""
 echo "📝 Configuration"
 
 if [[ "$MODE" == "1" || "$MODE" == "3" ]]; then
-  read -r -p "Agent name (e.g. node-FIN-1): " AGENT_NAME
-  read -r -p "Agent token: " AGENT_TOKEN
+  AGENT_NAME="$(prompt 'Agent name (e.g. node-FIN-1): ')"
+  AGENT_TOKEN="$(prompt 'Agent token: ')"
 fi
 
 if [[ "$MODE" == "2" || "$MODE" == "3" ]]; then
-  read -r -p "Telegram BOT token: " BOT_TOKEN
+  BOT_TOKEN="$(prompt 'Telegram BOT token: ')"
 fi
 
 if [[ "$MODE" == "1" || "$MODE" == "3" ]]; then
-  read -r -p "Bot URL (e.g. http://1.2.3.4:9000): " BOT_URL
+  BOT_URL="$(prompt 'Bot URL (e.g. http://1.2.3.4:9000): ')"
 fi
 
 # ---------- write env ----------
