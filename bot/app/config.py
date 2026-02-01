@@ -1,4 +1,4 @@
-\import os
+import os
 
 # Telegram
 BOT_TOKEN = os.getenv("BOT_TOKEN")
