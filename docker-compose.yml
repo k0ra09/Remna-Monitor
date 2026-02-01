@@ -20,4 +20,5 @@ services:
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
       AGENT_TOKEN: ${AGENT_TOKEN}
+      ADMIN_ID: ${ADMIN_ID}  # <--- ДОБАВИТЬ ЭТУ СТРОКУ
       AGENTS: ${AGENTS}
