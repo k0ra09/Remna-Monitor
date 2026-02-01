@@ -3,7 +3,6 @@ import aiohttp
 import asyncio
 import logging
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
 BOT_URL = os.getenv("BOT_URL")
@@ -23,7 +22,6 @@ def get_ip():
 
 
 async def register_loop():
-    """Бесконечный цикл регистрации агента в боте"""
     payload = {
         "name": AGENT_NAME,
         "url": f"http://{get_ip()}:{AGENT_PORT}",
@@ -37,6 +35,11 @@ async def register_loop():
 
     while True:
         try:
+            if not BOT_URL:
+                logging.error("BOT_URL не задан!")
+                await asyncio.sleep(10)
+                continue
+
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     f"{BOT_URL}/register",
@@ -45,15 +48,10 @@ async def register_loop():
                     timeout=5
                 ) as resp:
                     if resp.status == 200:
-                        logging.debug(f"✅ Успешный пинг/регистрация в боте")
+                        logging.info(f"✅ Успешный пинг бота")
                     else:
                         logging.warning(f"⚠️ Бот ответил кодом: {resp.status}")
         except Exception as e:
             logging.error(f"❌ Ошибка подключения к боту: {e}")
         
-        # Повторяем попытку каждую минуту (Heartbeat)
         await asyncio.sleep(60)
-
-
-if __name__ == "__main__":
-    asyncio.run(register_loop())
