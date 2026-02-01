@@ -80,12 +80,12 @@ if [[ "$MODE" == "2" || "$MODE" == "3" ]]; then
   ADMIN_ID="$(prompt 'Telegram Admin ID (numeric): ')"
 fi
 
-if [[ "$MODE" == "1" || "$MODE" == "3" ]]; then
-  BOT_URL="$(prompt 'Bot URL (e.g. http://1.2.3.4:9000): ')"
-fi
+# Всегда спрашиваем URL, чтобы агент знал куда стучаться
+BOT_URL="$(prompt 'Bot URL (e.g. http://127.0.0.1:9000 or http://YOUR_IP:9000): ')"
+
 
 # ---------- write env ----------
-# Используем | как разделитель в sed, чтобы не ломалось на спецсимволах
+# Используем | как разделитель, чтобы ссылки не ломали sed
 if [[ -n "$AGENT_NAME" ]]; then
   sed -i "s|AGENT_NAME=.*|AGENT_NAME=${AGENT_NAME}|g" "$ENV_FILE"
 fi
@@ -107,25 +107,17 @@ echo "📦 Starting services..."
 
 case "$MODE" in
   1)
-    docker compose up -d agent
+    docker compose up -d --build agent
     ;;
   2)
-    docker compose up -d bot
+    docker compose up -d --build bot
     ;;
   3)
-    docker compose up -d
+    docker compose up -d --build
     ;;
 esac
 
 echo ""
 echo "✅ Installation complete"
-
-if [[ "$MODE" == "1" ]]; then
-  echo "📡 Agent started and will auto-register in the bot"
-fi
-
-if [[ "$MODE" == "2" || "$MODE" == "3" ]]; then
-  echo "🤖 Bot is running"
-fi
-
+echo "Check status: docker compose logs -f"
 echo ""
