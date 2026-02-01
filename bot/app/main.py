@@ -46,7 +46,7 @@ async def monitor_task(bot: Bot):
                 if ram > 85: alerts.append(f"🧠 RAM: {ram}%")
                 if disk > 90: alerts.append(f"💾 DISK: {disk}%")
                 
-                # 3. Проверка сервисов (Marzban/Core)
+                # 3. Проверка сервисов
                 services = data.get("services", {})
                 for svc_name, svc_data in services.items():
                     if svc_data.get("status") != "ok":
@@ -64,7 +64,7 @@ async def monitor_task(bot: Bot):
             logging.error(f"Ошибка в цикле мониторинга: {e}")
 
 
-# ---------- TELEGRAM ----------
+# ---------- TELEGRAM HANDLERS ----------
 
 @dp.message(F.text == "/start")
 async def start(message: Message):
@@ -74,15 +74,44 @@ async def start(message: Message):
     )
 
 
+@dp.callback_query(F.data == "status")
+async def status(callback: CallbackQuery):
+    """Обработчик кнопки 'Статус'"""
+    agents_data = await fetch_all_agents()
+    
+    if not agents_data:
+        await callback.message.edit_text("Нет данных", reply_markup=back_menu())
+        return
+
+    total = len(agents_data)
+    online = sum(1 for a in agents_data if a.get("status") == "ok")
+    offline = total - online
+    
+    text = (
+        f"📊 <b>Состояние системы</b>\n\n"
+        f"🖥 Всего серверов: <b>{total}</b>\n"
+        f"✅ Онлайн: <b>{online}</b>\n"
+        f"❌ Офлайн: <b>{offline}</b>"
+    )
+    
+    await callback.message.edit_text(
+        text,
+        reply_markup=back_menu(),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
 @dp.callback_query(F.data == "nodes")
 async def nodes(callback: CallbackQuery):
+    """Обработчик кнопки 'Серверы'"""
     agents_data = await fetch_all_agents()
 
     if not agents_data:
         await callback.message.edit_text("Нет доступных серверов", reply_markup=back_menu())
         return
 
-    text = ["🖥 <b>Серверы</b>\n"]
+    text = ["🖥 <b>Детальная статистика</b>\n"]
     for a in agents_data:
         if a.get("status") == "error":
             text.append(f"❌ <b>{a['node']}</b>: ОШИБКА ({a.get('error')})")
@@ -98,6 +127,24 @@ async def nodes(callback: CallbackQuery):
 
     await callback.message.edit_text(
         "\n\n".join(text),
+        reply_markup=back_menu(),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "limits")
+async def limits(callback: CallbackQuery):
+    """Обработчик кнопки 'Лимиты'"""
+    text = (
+        "⚙️ <b>Текущие лимиты уведомлений:</b>\n\n"
+        "🔥 CPU > 85%\n"
+        "🧠 RAM > 85%\n"
+        "💾 Disk > 90%\n"
+        "💀 Падение сервисов"
+    )
+    await callback.message.edit_text(
+        text,
         reply_markup=back_menu(),
         parse_mode="HTML"
     )
