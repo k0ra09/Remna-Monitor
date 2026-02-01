@@ -1,13 +1,12 @@
 import os
 import time
 import socket
-import psutil
+import asyncio
 from fastapi import FastAPI, Request, HTTPException
 
-import asyncio
-from app.register import register
+from app.register import register_loop
+from app.metrics import collect_metrics
 
-asyncio.create_task(register())
 AGENT_NAME = os.getenv("AGENT_NAME", socket.gethostname())
 AGENT_TOKEN = os.getenv("AGENT_TOKEN")
 
@@ -21,31 +20,23 @@ def check_auth(request: Request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-# ---------- SYSTEM METRICS ----------
-def get_system_metrics():
-    return {
-        "cpu_percent": psutil.cpu_percent(interval=0.5),
-        "ram_percent": psutil.virtual_memory().percent,
-        "disk_percent": psutil.disk_usage("/").percent,
-        "uptime_sec": int(time.time() - psutil.boot_time()),
-    }
-
-
 # ---------- STATUS ----------
 @app.get("/status")
-def status(request: Request):
+async def status(request: Request):
     check_auth(request)
-
+    
+    # Используем обновленную функцию метрик
+    metrics = await collect_metrics()
+    
     return {
         "node": AGENT_NAME,
         "status": "ok",
-        "time": int(time.time()),
-        "system": get_system_metrics()
+        **metrics # Распаковываем time, system, services
     }
 
 
 # ---------- STARTUP ----------
 @app.on_event("startup")
-def on_startup():
-    # автрегистр при старте агента
-    register()
+async def on_startup():
+    # Запускаем цикл регистрации в фоне
+    asyncio.create_task(register_loop())
