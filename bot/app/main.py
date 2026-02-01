@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
@@ -13,6 +14,10 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 logging.basicConfig(level=logging.INFO)
 
+# Словарь для хранения последних ошибок по каждому серверу
+# Format: {"NodeName": ["Error 1", "Error 2"]}
+node_states = {}
+
 
 # ---------- HELPER ----------
 def is_admin(user_id: int) -> bool:
@@ -25,47 +30,70 @@ def is_admin(user_id: int) -> bool:
 
 async def monitor_task(bot: Bot):
     """Фоновая задача: проверяет серверы раз в минуту"""
-    logging.info("🕵️‍♂️ Мониторинг запущен")
+    logging.info("🕵️‍♂️ Умный мониторинг запущен")
+    
     while True:
         await asyncio.sleep(60) 
         
         try:
             agents_data = await fetch_all_agents()
+            
+            # Проходимся по каждому агенту
             for data in agents_data:
-                # 1. Если агент недоступен
-                if data.get("status") == "error":
-                    if ADMIN_ID:
-                        await bot.send_message(
-                            ADMIN_ID, 
-                            f"🚨 <b>ВНИМАНИЕ!</b>\n\nАгент <b>{data['node']}</b> недоступен!\nОшибка: {data.get('error')}",
-                            parse_mode="HTML"
-                        )
-                    continue
-                
-                # 2. Проверка ресурсов
-                sys = data.get("system", {})
-                cpu = sys.get("cpu_percent", 0)
-                ram = sys.get("ram_percent", 0)
-                disk = sys.get("disk_percent", 0)
-                
-                alerts = []
-                if cpu > 85: alerts.append(f"🔥 CPU: {cpu}%")
-                if ram > 85: alerts.append(f"🧠 RAM: {ram}%")
-                if disk > 90: alerts.append(f"💾 DISK: {disk}%")
-                
-                # 3. Проверка сервисов
-                services = data.get("services", {})
-                for svc_name, svc_data in services.items():
-                    if svc_data.get("status") != "ok":
-                        alerts.append(f"💀 Сервис <b>{svc_name}</b> упал!")
+                node_name = data['node']
+                current_problems = []
 
-                # Если есть проблемы — шлем сообщение
-                if alerts and ADMIN_ID:
-                    msg = f"⚠️ <b>Проблемы на {data['node']}</b>\n\n" + "\n".join(alerts)
-                    try:
-                        await bot.send_message(ADMIN_ID, msg, parse_mode="HTML")
-                    except Exception as e:
-                        logging.error(f"Не удалось отправить алерт: {e}")
+                # 1. Если агент недоступен (Status Error)
+                if data.get("status") == "error":
+                    current_problems.append(f"🚨 <b>Связь потеряна!</b> ({data.get('error')})")
+                else:
+                    # 2. Проверка ресурсов
+                    sys = data.get("system", {})
+                    cpu = sys.get("cpu_percent", 0)
+                    ram = sys.get("ram_percent", 0)
+                    disk = sys.get("disk_percent", 0)
+                    
+                    if cpu > 85: current_problems.append(f"🔥 Высокая нагрузка CPU: {cpu}%")
+                    if ram > 85: current_problems.append(f"🧠 Мало памяти RAM: {ram}%")
+                    if disk > 90: current_problems.append(f"💾 Заканчивается диск: {disk}%")
+                    
+                    # 3. Проверка сервисов
+                    services = data.get("services", {})
+                    for svc_name, svc_data in services.items():
+                        if svc_data.get("status") != "ok":
+                            current_problems.append(f"💀 Сервис <b>{svc_name}</b> упал!")
+
+                # --- ЛОГИКА ANTI-SPAM ---
+                
+                # Получаем прошлые проблемы этого сервера
+                last_problems = node_states.get(node_name, [])
+                
+                # Сортируем, чтобы порядок не влиял на сравнение
+                current_problems.sort()
+                last_problems.sort()
+
+                # Если список проблем изменился (что-то новое или что-то починилось)
+                if current_problems != last_problems:
+                    
+                    # Если проблем стало больше 0 - шлем алерт
+                    if current_problems:
+                        if ADMIN_ID:
+                            msg = f"⚠️ <b>Проблемы на {node_name}</b>\n\n" + "\n".join(current_problems)
+                            try:
+                                await bot.send_message(ADMIN_ID, msg, parse_mode="HTML")
+                            except Exception as e:
+                                logging.error(f"Error sending alert: {e}")
+                    
+                    # Если проблем стало 0, а раньше были - значит ПОЧИНИЛОСЬ!
+                    elif last_problems and not current_problems:
+                        if ADMIN_ID:
+                            try:
+                                await bot.send_message(ADMIN_ID, f"✅ <b>{node_name}</b> полностью восстановился!", parse_mode="HTML")
+                            except Exception as e:
+                                logging.error(f"Error sending recovery: {e}")
+
+                    # Запоминаем текущее состояние
+                    node_states[node_name] = current_problems
 
         except Exception as e:
             logging.error(f"Ошибка в цикле мониторинга: {e}")
@@ -130,10 +158,9 @@ async def nodes(callback: CallbackQuery):
         sys = a.get("system", {})
         net = sys.get("network", {})
         
-        # Красивое отображение
         text.append(
             f"✅ <b>{a['node']}</b>\n"
-            f"├ 🚀 <b>Network:</b> ↓{net.get('rx_mbit', 0)} Mbit  ↑{net.get('tx_mbit', 0)} Mbit\n"
+            f"├ 🚀 <b>Net:</b> ↓{net.get('rx_mbit', 0)} Mbit  ↑{net.get('tx_mbit', 0)} Mbit\n"
             f"├ CPU: {sys.get('cpu_percent','?')}%\n"
             f"├ RAM: {sys.get('ram_percent','?')}%\n"
             f"└ Disk: {sys.get('disk_percent','?')}%"
@@ -164,7 +191,6 @@ async def back(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):
         return
 
-    # Вот тут была ошибка. Теперь кавычки на месте.
     await callback.message.edit_text(
         "🧠 Remna Monitor\n\nВыбери действие:",
         reply_markup=main_menu()
