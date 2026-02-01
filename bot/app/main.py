@@ -77,14 +77,16 @@ async def start(message: Message):
 @dp.callback_query(F.data == "status")
 async def status(callback: CallbackQuery):
     """Обработчик кнопки 'Статус'"""
+    # Получаем свежие данные
     agents_data = await fetch_all_agents()
     
     if not agents_data:
-        await callback.message.edit_text("Нет данных", reply_markup=back_menu())
+        await callback.message.edit_text("Нет данных о серверах", reply_markup=back_menu())
         return
 
+    # Считаем статистику
     total = len(agents_data)
-    online = sum(1 for a in agents_data if a.get("status") == "ok")
+    online = sum(1 for a in agents_data if a.get("status") != "error")
     offline = total - online
     
     text = (
