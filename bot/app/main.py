@@ -14,6 +14,15 @@ dp = Dispatcher()
 logging.basicConfig(level=logging.INFO)
 
 
+# ---------- HELPER ----------
+def is_admin(user_id: int) -> bool:
+    # Если ADMIN_ID не задан (0), пускаем всех (режим отладки)
+    # Если задан, пускаем только админа
+    if ADMIN_ID == 0:
+        return True
+    return user_id == ADMIN_ID
+
+
 # ---------- MONITORING TASK ----------
 
 async def monitor_task(bot: Bot):
@@ -68,6 +77,9 @@ async def monitor_task(bot: Bot):
 
 @dp.message(F.text == "/start")
 async def start(message: Message):
+    if not is_admin(message.from_user.id):
+        return  # Игнорируем чужаков
+
     await message.answer(
         "🧠 Remna Monitor\n\nВыбери действие:",
         reply_markup=main_menu()
@@ -76,15 +88,15 @@ async def start(message: Message):
 
 @dp.callback_query(F.data == "status")
 async def status(callback: CallbackQuery):
-    """Обработчик кнопки 'Статус'"""
-    # Получаем свежие данные
+    if not is_admin(callback.from_user.id):
+        return
+
     agents_data = await fetch_all_agents()
     
     if not agents_data:
         await callback.message.edit_text("Нет данных о серверах", reply_markup=back_menu())
         return
 
-    # Считаем статистику
     total = len(agents_data)
     online = sum(1 for a in agents_data if a.get("status") != "error")
     offline = total - online
@@ -96,17 +108,15 @@ async def status(callback: CallbackQuery):
         f"❌ Офлайн: <b>{offline}</b>"
     )
     
-    await callback.message.edit_text(
-        text,
-        reply_markup=back_menu(),
-        parse_mode="HTML"
-    )
+    await callback.message.edit_text(text, reply_markup=back_menu(), parse_mode="HTML")
     await callback.answer()
 
 
 @dp.callback_query(F.data == "nodes")
 async def nodes(callback: CallbackQuery):
-    """Обработчик кнопки 'Серверы'"""
+    if not is_admin(callback.from_user.id):
+        return
+
     agents_data = await fetch_all_agents()
 
     if not agents_data:
@@ -127,17 +137,15 @@ async def nodes(callback: CallbackQuery):
             f"└ Disk: {sys.get('disk_percent','?')}%"
         )
 
-    await callback.message.edit_text(
-        "\n\n".join(text),
-        reply_markup=back_menu(),
-        parse_mode="HTML"
-    )
+    await callback.message.edit_text("\n\n".join(text), reply_markup=back_menu(), parse_mode="HTML")
     await callback.answer()
 
 
 @dp.callback_query(F.data == "limits")
 async def limits(callback: CallbackQuery):
-    """Обработчик кнопки 'Лимиты'"""
+    if not is_admin(callback.from_user.id):
+        return
+
     text = (
         "⚙️ <b>Текущие лимиты уведомлений:</b>\n\n"
         "🔥 CPU > 85%\n"
@@ -145,46 +153,14 @@ async def limits(callback: CallbackQuery):
         "💾 Disk > 90%\n"
         "💀 Падение сервисов"
     )
-    await callback.message.edit_text(
-        text,
-        reply_markup=back_menu(),
-        parse_mode="HTML"
-    )
+    await callback.message.edit_text(text, reply_markup=back_menu(), parse_mode="HTML")
     await callback.answer()
 
 
 @dp.callback_query(F.data == "back")
 async def back(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+
     await callback.message.edit_text(
-        "🧠 Remna Monitor\n\nВыбери действие:",
-        reply_markup=main_menu()
-    )
-    await callback.answer()
-
-
-# ---------- HTTP ----------
-
-async def register_handler(request):
-    auth = request.headers.get("Authorization")
-    if auth != f"Bearer {AGENT_TOKEN}":
-        return web.json_response({"error": "unauthorized"}, status=401)
-
-    data = await request.json()
-    register_agent(data)
-    return web.json_response({"status": "ok"})
-
-
-async def start_bot(app: web.Application):
-    asyncio.create_task(dp.start_polling(bot))
-    asyncio.create_task(monitor_task(bot))
-
-
-def create_app():
-    app = web.Application()
-    app.router.add_post("/register", register_handler)
-    app.on_startup.append(start_bot)
-    return app
-
-
-if __name__ == "__main__":
-    web.run_app(create_app(), host="0.0.0.0", port=9000)
+        "🧠 Remna Monitor\n\nВыбери действие
