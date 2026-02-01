@@ -77,6 +77,7 @@ fi
 
 if [[ "$MODE" == "2" || "$MODE" == "3" ]]; then
   BOT_TOKEN="$(prompt 'Telegram BOT token: ')"
+  ADMIN_ID="$(prompt 'Telegram Admin ID (numeric): ')"
 fi
 
 if [[ "$MODE" == "1" || "$MODE" == "3" ]]; then
@@ -84,10 +85,22 @@ if [[ "$MODE" == "1" || "$MODE" == "3" ]]; then
 fi
 
 # ---------- write env ----------
-sed -i "s|AGENT_NAME=.*|AGENT_NAME=${AGENT_NAME}|g" "$ENV_FILE"
-sed -i "s|AGENT_TOKEN=.*|AGENT_TOKEN=${AGENT_TOKEN}|g" "$ENV_FILE"
-sed -i "s|BOT_TOKEN=.*|BOT_TOKEN=${BOT_TOKEN}|g" "$ENV_FILE"
-sed -i "s|BOT_URL=.*|BOT_URL=${BOT_URL}|g" "$ENV_FILE"
+# Используем | как разделитель в sed, чтобы не ломалось на спецсимволах
+if [[ -n "$AGENT_NAME" ]]; then
+  sed -i "s|AGENT_NAME=.*|AGENT_NAME=${AGENT_NAME}|g" "$ENV_FILE"
+fi
+if [[ -n "$AGENT_TOKEN" ]]; then
+  sed -i "s|AGENT_TOKEN=.*|AGENT_TOKEN=${AGENT_TOKEN}|g" "$ENV_FILE"
+fi
+if [[ -n "$BOT_TOKEN" ]]; then
+  sed -i "s|BOT_TOKEN=.*|BOT_TOKEN=${BOT_TOKEN}|g" "$ENV_FILE"
+fi
+if [[ -n "$ADMIN_ID" ]]; then
+  sed -i "s|ADMIN_ID=.*|ADMIN_ID=${ADMIN_ID}|g" "$ENV_FILE"
+fi
+if [[ -n "$BOT_URL" ]]; then
+  sed -i "s|BOT_URL=.*|BOT_URL=${BOT_URL}|g" "$ENV_FILE"
+fi
 
 echo ""
 echo "📦 Starting services..."
