@@ -16,8 +16,6 @@ logging.basicConfig(level=logging.INFO)
 
 # ---------- HELPER ----------
 def is_admin(user_id: int) -> bool:
-    # Если ADMIN_ID не задан (0), пускаем всех (режим отладки)
-    # Если задан, пускаем только админа
     if ADMIN_ID == 0:
         return True
     return user_id == ADMIN_ID
@@ -29,7 +27,7 @@ async def monitor_task(bot: Bot):
     """Фоновая задача: проверяет серверы раз в минуту"""
     logging.info("🕵️‍♂️ Мониторинг запущен")
     while True:
-        await asyncio.sleep(60) # Проверка раз в минуту
+        await asyncio.sleep(60) 
         
         try:
             agents_data = await fetch_all_agents()
@@ -78,7 +76,7 @@ async def monitor_task(bot: Bot):
 @dp.message(F.text == "/start")
 async def start(message: Message):
     if not is_admin(message.from_user.id):
-        return  # Игнорируем чужаков
+        return 
 
     await message.answer(
         "🧠 Remna Monitor\n\nВыбери действие:",
@@ -130,8 +128,12 @@ async def nodes(callback: CallbackQuery):
             continue
 
         sys = a.get("system", {})
+        net = sys.get("network", {})
+        
+        # Красивое отображение
         text.append(
             f"✅ <b>{a['node']}</b>\n"
+            f"├ 🚀 <b>Network:</b> ↓{net.get('rx_mbit', 0)} Mbit  ↑{net.get('tx_mbit', 0)} Mbit\n"
             f"├ CPU: {sys.get('cpu_percent','?')}%\n"
             f"├ RAM: {sys.get('ram_percent','?')}%\n"
             f"└ Disk: {sys.get('disk_percent','?')}%"
@@ -162,5 +164,37 @@ async def back(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):
         return
 
+    # Вот тут была ошибка. Теперь кавычки на месте.
     await callback.message.edit_text(
-        "🧠 Remna Monitor\n\nВыбери действие
+        "🧠 Remna Monitor\n\nВыбери действие:",
+        reply_markup=main_menu()
+    )
+    await callback.answer()
+
+
+# ---------- HTTP ----------
+
+async def register_handler(request):
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {AGENT_TOKEN}":
+        return web.json_response({"error": "unauthorized"}, status=401)
+
+    data = await request.json()
+    register_agent(data)
+    return web.json_response({"status": "ok"})
+
+
+async def start_bot(app: web.Application):
+    asyncio.create_task(dp.start_polling(bot))
+    asyncio.create_task(monitor_task(bot))
+
+
+def create_app():
+    app = web.Application()
+    app.router.add_post("/register", register_handler)
+    app.on_startup.append(start_bot)
+    return app
+
+
+if __name__ == "__main__":
+    web.run_app(create_app(), host="0.0.0.0", port=9000)
