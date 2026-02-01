@@ -4,9 +4,8 @@ from aiohttp import web
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
 
-from app.registry import register_agent, load_agents
+from app.registry import register_agent
 from app.keyboards import main_menu, back_menu
-# Импортируем ADMIN_ID из конфига
 from app.config import BOT_TOKEN, AGENT_TOKEN, ADMIN_ID
 from app.agents import fetch_all_agents
 
@@ -28,7 +27,6 @@ async def monitor_task(bot: Bot):
             for data in agents_data:
                 # 1. Если агент недоступен
                 if data.get("status") == "error":
-                    # Проверяем, задан ли корректный ID админа
                     if ADMIN_ID:
                         await bot.send_message(
                             ADMIN_ID, 
@@ -70,16 +68,11 @@ async def monitor_task(bot: Bot):
 
 @dp.message(F.text == "/start")
 async def start(message: Message):
-    # Можно сделать проверку: отвечать только админу
-    # if message.from_user.id != ADMIN_ID:
-    #     return
-
     await message.answer(
         "🧠 Remna Monitor\n\nВыбери действие:",
         reply_markup=main_menu()
     )
 
-# ... остальной код без изменений (nodes, back, http handlers) ...
 
 @dp.callback_query(F.data == "nodes")
 async def nodes(callback: CallbackQuery):
@@ -119,6 +112,8 @@ async def back(callback: CallbackQuery):
     )
     await callback.answer()
 
+
+# ---------- HTTP ----------
 
 async def register_handler(request):
     auth = request.headers.get("Authorization")
