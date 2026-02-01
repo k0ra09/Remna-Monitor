@@ -4,8 +4,10 @@ import socket
 import psutil
 from fastapi import FastAPI, Request, HTTPException
 
+import asyncio
 from app.register import register
 
+asyncio.create_task(register())
 AGENT_NAME = os.getenv("AGENT_NAME", socket.gethostname())
 AGENT_TOKEN = os.getenv("AGENT_TOKEN")
 
