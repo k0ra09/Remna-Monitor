@@ -3,11 +3,9 @@ import psutil
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-# Создаем пул потоков для тяжелых задач
 executor = ThreadPoolExecutor()
 
 async def system_metrics():
-    # Запускаем блокирующую функцию cpu_percent в отдельном потоке
     loop = asyncio.get_running_loop()
     cpu = await loop.run_in_executor(executor, psutil.cpu_percent, 0.5)
 
@@ -52,6 +50,6 @@ async def service_checks():
 async def collect_metrics():
     return {
         "time": int(time.time()),
-        "system": await system_metrics(), # Теперь это await
+        "system": await system_metrics(),
         "services": await service_checks()
     }
